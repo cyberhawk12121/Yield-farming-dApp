@@ -1,7 +1,9 @@
 import React, { Component } from 'react'
 import Navbar from './Navbar'
 import './App.css'
-import Web3 from 'web3'
+
+import DappToken from "../abis/DappToken.json"
+import DaiToken from "../abis/DaiToken.json"
 
 class App extends Component {
 
@@ -9,14 +11,43 @@ class App extends Component {
     await this.loadWeb3()  
   }
 
-  // Connect app to the blockchain
-  async loadWeb3(){
-    if(window.ethereum){
-      window.web3=new Web3(window.ethereum)
-      await window.ethereum.enable()
+  async loadBlockchainData(){
+    const web3= window.web3
+    const accounts= await web3.eth.getAccounts()
+    console.log(accounts[0]);
+    this.setState({account: accounts[0]});
+    // Fetch Ganache network so that we can get the smart contract
+    const netId= await web3.eth.net.getId()
+    console.log(netId);
+
+    // DaiToken
+    const dai=DaiToken.networks[netId];  // fetch the address from abis
+    if(dai){
+      // We're getting the smart contract in JS
+      const daiToken= new web3.eth.Contract(DaiToken.abi, dai.address)
+      this.setState({daiToken: daiToken});
+      // Then calling the methods
+      let daiBalance=await daiToken.methods.balanceOf(this.state.account).call()
+    }else{
+      window.alert("Dai token smart contract not deployed to the connected network");
     }
-    else if(window.web3){
-      window.web3= new Web3(window.web3.currentProvider)
+
+  }
+
+  // Connect to metamask/blockchain networks
+  // ******** window.ethereum and ethereum.enable() is deprecated
+  async loadWeb3(){
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        console.log(accounts)
+        this.setState({account: accounts[0]});
+      } catch (error) {
+        if (error.code === 4001) {
+          window.alert("Couldn't find any accounts to connect");
+        }
+        console.log(error);
+      }
     }
     else{
       alert("Install metamask!");
@@ -26,7 +57,14 @@ class App extends Component {
   constructor(props) {
     super(props)
     this.state = {
-      account: '0x0'
+      account: '<address>',
+      tokenBank :{},
+      dappToken: {},
+      daiToken: {},
+      daiBalance:'0',
+      dappBalance:'0',
+      depositedBalance:'0',
+      loading:true
     }
   }
 
